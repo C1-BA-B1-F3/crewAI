@@ -580,3 +580,61 @@ class TestDictToolOutput:
         result = tool.invoke(input={"query": "test"})
         formatted = tool.format_output_for_agent(result)
         assert formatted == "hello world"
+
+    def test_dict_with_unserializable_key_falls_back_to_str(self):
+        """Dict with non-string keys that json.dumps(default=str) can't handle falls back to str()."""
+        from crewai.tools.structured_tool import CrewStructuredTool
+
+        class UnhashableKey:
+            """A key type that json.dumps cannot serialize even with default=str."""
+            def __str__(self):
+                raise RuntimeError("cannot stringify")
+
+        def bad_key_tool(query: str) -> dict:
+            return {UnhashableKey(): "value"}
+
+        tool = CrewStructuredTool.from_function(
+            func=bad_key_tool,
+            name="bad_key_tool",
+            description="Returns a dict with unhashable keys.",
+        )
+        result = tool.invoke(input={"query": "test"})
+        formatted = tool.format_output_for_agent(result)
+        assert isinstance(formatted, str)
+        assert "value" in formatted
+
+    def test_dict_with_non_string_keys_serialized(self):
+        """Dict with int keys should be JSON-serialized with default=str."""
+        import json
+        from crewai.tools.structured_tool import CrewStructuredTool
+
+        def int_key_tool(query: str) -> dict:
+            return {1: "one", 2: "two"}
+
+        tool = CrewStructuredTool.from_function(
+            func=int_key_tool,
+            name="int_key_tool",
+            description="Returns a dict with int keys.",
+        )
+        result = tool.invoke(input={"query": "test"})
+        formatted = tool.format_output_for_agent(result)
+        parsed = json.loads(formatted)
+        assert parsed["1"] == "one"
+
+    def test_nested_list_output_serialized(self):
+        """Deeply nested list should be JSON-serialized."""
+        import json
+        from crewai.tools.structured_tool import CrewStructuredTool
+
+        def nested_list_tool(query: str) -> list:
+            return [[{"a": 1}], [{"b": 2}]]
+
+        tool = CrewStructuredTool.from_function(
+            func=nested_list_tool,
+            name="nested_list_tool",
+            description="Returns nested lists.",
+        )
+        result = tool.invoke(input={"query": "test"})
+        formatted = tool.format_output_for_agent(result)
+        parsed = json.loads(formatted)
+        assert parsed[0][0]["a"] == 1

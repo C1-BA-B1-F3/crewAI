@@ -1146,6 +1146,8 @@ class CrewAgentExecutor(BaseAgentExecutor):
                 raise
 
             if self.ask_for_human_input:
+                if not (self.agent.verbose or (self.crew and getattr(self.crew, "verbose", False))):
+                    self._show_logs(formatted_answer)
                 formatted_answer = await self._ahandle_human_feedback(formatted_answer)
 
         self._save_to_memory(formatted_answer)
