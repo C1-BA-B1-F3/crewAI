@@ -241,6 +241,10 @@ class CrewAgentExecutor(BaseAgentExecutor):
                 raise
 
             if self.ask_for_human_input:
+                # Ensure the result is visible before prompting for feedback,
+                # even when verbose=False (fixes #6072).
+                if not (self.agent.verbose or (self.crew and getattr(self.crew, "verbose", False))):
+                    self._show_logs(formatted_answer)
                 formatted_answer = self._handle_human_feedback(formatted_answer)
 
         self._save_to_memory(formatted_answer)

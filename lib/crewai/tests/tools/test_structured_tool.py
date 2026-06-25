@@ -519,3 +519,64 @@ def test_structured_tool_invoke_exception_handling():
         tool.invoke({"should_fail": True})
 
     assert call_count == 1
+
+
+class TestDictToolOutput:
+    """Test that tools returning dict/list are properly serialized to JSON."""
+
+    def test_dict_output_is_json_serialized(self):
+        """Tool returning a nested dict should produce valid JSON output."""
+        import json
+        from crewai.tools.structured_tool import CrewStructuredTool
+
+        def mock_api_tool(query: str) -> dict:
+            return {"status": "success", "data": {"items": [{"id": 1, "value": "test"}]}}
+
+        tool = CrewStructuredTool.from_function(
+            func=mock_api_tool,
+            name="mock_api_tool",
+            description="Fetches data from a mock API.",
+        )
+        result = tool.invoke(input={"query": "test"})
+        formatted = tool.format_output_for_agent(result)
+
+        # Should be valid JSON, not Python repr
+        parsed = json.loads(formatted)
+        assert parsed["status"] == "success"
+        assert parsed["data"]["items"][0]["id"] == 1
+
+    def test_list_output_is_json_serialized(self):
+        """Tool returning a list should produce valid JSON output."""
+        import json
+        from crewai.tools.structured_tool import CrewStructuredTool
+
+        def list_tool(query: str) -> list:
+            return [{"id": 1}, {"id": 2}]
+
+        tool = CrewStructuredTool.from_function(
+            func=list_tool,
+            name="list_tool",
+            description="Returns a list.",
+        )
+        result = tool.invoke(input={"query": "test"})
+        formatted = tool.format_output_for_agent(result)
+
+        parsed = json.loads(formatted)
+        assert len(parsed) == 2
+        assert parsed[0]["id"] == 1
+
+    def test_string_output_unchanged(self):
+        """Tool returning a string should remain unchanged."""
+        from crewai.tools.structured_tool import CrewStructuredTool
+
+        def string_tool(query: str) -> str:
+            return "hello world"
+
+        tool = CrewStructuredTool.from_function(
+            func=string_tool,
+            name="string_tool",
+            description="Returns a string.",
+        )
+        result = tool.invoke(input={"query": "test"})
+        formatted = tool.format_output_for_agent(result)
+        assert formatted == "hello world"

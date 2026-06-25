@@ -711,6 +711,11 @@ class ToolUsage:
             self.task.used_tools += 1
         if self._should_remember_format():
             result = self._remember_format(result=result)
+        if isinstance(result, (dict, list)):
+            try:
+                return json.dumps(result, ensure_ascii=False, default=str)
+            except (TypeError, ValueError):
+                return str(result)
         return str(result)
 
     def _should_remember_format(self) -> bool:
